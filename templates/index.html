@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스미싱 탐지 시스템 by Kanana-O</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 상단 바 */
+.topbar {
+  width: 100%;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: white;
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.topbar-title { font-size: 17px; font-weight: 700; }
+.topbar-sub { font-size: 12px; opacity: 0.6; margin-top: 2px; }
+.topbar-badge {
+  margin-left: auto;
+  background: rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+}
+
+/* 레이아웃 */
+.wrap {
+  width: 100%;
+  max-width: 800px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card {
+  background: white;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 14px;
+}
+
+/* 입력 */
+textarea#smsInput {
+  width: 100%;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.65;
+  transition: border-color 0.2s;
+  outline: none;
+  color: #222;
+}
+textarea#smsInput:focus { border-color: #1a1a2e; }
+.char-count { text-align: right; font-size: 12px; color: #aaa; margin-top: 6px; }
+
+
+/* 버튼 */
+.btn-scan {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  background: #1a1a2e;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-scan:hover { background: #16213e; }
+.btn-scan:disabled { background: #bbb; cursor: not-allowed; }
+
+/* 로딩 */
+.loading {
+  display: none;
+  text-align: center;
+  padding: 36px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid #eee;
+  border-top-color: #1a1a2e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 14px; color: #555; font-weight: 600; }
+.loading-sub  { font-size: 12px; color: #aaa; margin-top: 6px; }
+
+/* 결과 카드 */
+#resultCard { display: none; }
+
+/* 판정 배너 */
+.verdict-banner {
+  border-radius: 12px;
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.verdict-text { font-size: 20px; font-weight: 800; }
+.verdict-sub  { font-size: 13px; margin-top: 4px; opacity: 0.85; }
+.verdict-SAFE       { background: #eafaf1; color: #1e8449; border: 1.5px solid #a9dfbf; }
+.verdict-SUSPICIOUS { background: #fef9e7; color: #b7770d; border: 1.5px solid #f9e79f; }
+.verdict-BLOCK      { background: #fdf0ef; color: #c0392b; border: 1.5px solid #f5b7b1; }
+
+/* 위험도 바 */
+.score-wrap { margin-bottom: 24px; }
+.score-label { display: flex; justify-content: space-between; font-size: 13px; color: #555; margin-bottom: 7px; }
+.score-track { background: #eee; border-radius: 8px; height: 10px; overflow: hidden; }
+.score-fill  { height: 100%; border-radius: 8px; transition: width 0.7s ease; }
+
+/* 위험 요소 태그 */
+.danger-section { margin-bottom: 24px; }
+.danger-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.danger-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+.danger-tag {
+  background: #fdf0ef;
+  border: 1px solid #f5b7b1;
+  color: #c0392b;
+  font-size: 12px;
+  padding: 4px 11px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+/* Kanana-o 분석 본문 */
+.analysis-section { margin-bottom: 24px; }
+.analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.kanana-badge {
+  background: #1a1a2e;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 7px;
+  letter-spacing: 0.05em;
+}
+.analysis-type { font-size: 13px; font-weight: 600; color: #444; }
+.analysis-confidence { margin-left: auto; font-size: 12px; color: #aaa; }
+.analysis-body {
+  background: #f8f9fb;
+  border: 1px solid #e8ecf2;
+  border-radius: 12px;
+  padding: 20px;
+  font-size: 14px;
+  line-height: 1.9;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 행동 지침 */
+.action-box {
+  border-radius: 10px;
+  padding: 16px 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.action-SAFE       { background: #eafaf1; color: #1e6b3a; border: 1px solid #a9dfbf; }
+.action-SUSPICIOUS { background: #fef9e7; color: #7d5a0d; border: 1px solid #f9e79f; }
+.action-BLOCK      { background: #fdf0ef; color: #922b21; border: 1px solid #f5b7b1; }
+
+/* JSON */
+.toggle-json {
+  background: none; border: 1px solid #e0e0e0;
+  border-radius: 6px; padding: 6px 14px;
+  font-size: 12px; cursor: pointer; color: #bbb;
+  margin-top: 16px; display: block;
+}
+#rawJson {
+  display: none; margin-top: 10px;
+  background: #1a1a2e; color: #a8ff78;
+  border-radius: 8px; padding: 16px;
+  font-size: 12px; overflow-x: auto; white-space: pre-wrap;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="topbar-title">스미싱 탐지 시스템</div>
+    <div class="topbar-sub">Powered by Kanana-o</div>
+  </div>
+  <div class="topbar-badge">Kanana-o 단독 분석</div>
+</div>
+
+<div class="wrap">
+
+  <!-- 입력 -->
+  <div class="card">
+    <div class="card-title">문자 메시지 입력</div>
+    <textarea id="smsInput" placeholder="의심스러운 문자 내용을 붙여넣기 하세요…" oninput="onInput()"></textarea>
+    <div class="char-count"><span id="charCount">0</span> / 2000</div>
+
+
+    <button class="btn-scan" id="scanBtn" onclick="scan()" disabled>
+      스미싱 탐지 시작
+    </button>
+  </div>
+
+  <!-- 로딩 -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Kanana-o가 분석하는 중...</div>
+    <div class="loading-sub">한국어 특화 AI가 문자를 심층 평가합니다</div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="card" id="resultCard">
+    <div class="card-title">보안 평가 결과</div>
+
+    <!-- 판정 -->
+    <div id="verdictBanner"></div>
+
+    <!-- 위험도 -->
+    <div class="score-wrap">
+      <div class="score-label">
+        <span>위험도</span>
+        <span id="scoreText">0%</span>
+      </div>
+      <div class="score-track">
+        <div class="score-fill" id="scoreFill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- 위험 요소 태그 -->
+    <div class="danger-section" id="dangerSection" style="display:none">
+      <div class="danger-title">탐지된 위험 요소</div>
+      <div class="danger-tags" id="dangerTags"></div>
+    </div>
+
+    <!-- Kanana-o 분석 본문 -->
+    <div class="analysis-section">
+      <div class="analysis-header">
+        <span class="kanana-badge">KANANA-O 분석</span>
+        <span class="analysis-type" id="analysisType"></span>
+        <span class="analysis-confidence" id="analysisConf"></span>
+      </div>
+      <div class="analysis-body" id="analysisBody"></div>
+    </div>
+
+    <!-- 행동 지침 -->
+    <div id="actionBox"></div>
+
+    <button class="toggle-json" onclick="toggleJson()">JSON 원문 보기</button>
+    <pre id="rawJson"></pre>
+  </div>
+
+</div>
+
+<script>
+const VERDICT_META = {
+  SAFE:       { text: '정상 문자',   sub: '스미싱 패턴이 감지되지 않았습니다.' },
+  SUSPICIOUS: { text: '의심 문자',   sub: '스미싱 가능성이 있습니다. 주의하세요.' },
+  BLOCK:      { text: '스미싱 탐지', sub: '즉시 삭제하고 링크를 클릭하지 마세요.' },
+};
+
+function onInput() {
+  const v = document.getElementById('smsInput').value;
+  document.getElementById('charCount').textContent = v.length;
+  document.getElementById('scanBtn').disabled = v.trim().length === 0;
+}
+
+async function scan() {
+  const text = document.getElementById('smsInput').value.trim();
+  if (!text) return;
+  document.getElementById('resultCard').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('scanBtn').disabled = true;
+
+  try {
+    const res = await fetch('/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || '서버 오류');
+    showResult(await res.json());
+  } catch (e) {
+    alert('오류: ' + e.message);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('scanBtn').disabled = false;
+  }
+}
+
+function showResult(data) {
+  const verdict = data.final_verdict || 'SAFE';
+  const meta = VERDICT_META[verdict];
+  const pct = Math.round((data.final_score || 0) * 100);
+  const color = pct >= 75 ? '#e74c3c' : pct >= 40 ? '#f39c12' : '#27ae60';
+  const llm = data.llm_result || {};
+
+  // 판정 배너
+  document.getElementById('verdictBanner').innerHTML = `
+    <div class="verdict-banner verdict-${verdict}">
+      <div>
+        <div class="verdict-text">${meta.text}</div>
+        <div class="verdict-sub">${meta.sub}</div>
+      </div>
+    </div>`;
+
+  // 위험도 바
+  document.getElementById('scoreText').textContent = pct + '%';
+  const fill = document.getElementById('scoreFill');
+  fill.style.width = pct + '%';
+  fill.style.background = color;
+
+  // 위험 요소 태그
+  const dangers = llm.danger_points || [];
+  const dangerSec = document.getElementById('dangerSection');
+  if (dangers.length > 0) {
+    document.getElementById('dangerTags').innerHTML =
+      dangers.map(d => `<span class="danger-tag">${esc(d)}</span>`).join('');
+    dangerSec.style.display = 'block';
+  } else {
+    dangerSec.style.display = 'none';
+  }
+
+  // Kanana-o 분석
+  document.getElementById('analysisType').textContent = llm.smishing_type || '';
+  document.getElementById('analysisConf').textContent =
+    llm.confidence != null ? `신뢰도 ${Math.round(llm.confidence * 100)}%` : '';
+  document.getElementById('analysisBody').textContent = llm.analysis || '(분석 결과 없음)';
+
+  // 행동 지침
+  document.getElementById('actionBox').innerHTML = `
+    <div class="action-box action-${verdict}">
+      <div>${esc(llm.action_guide || '')}</div>
+    </div>`;
+
+  // JSON
+  document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
+  document.getElementById('rawJson').style.display = 'none';
+
+  document.getElementById('resultCard').style.display = 'block';
+  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleJson() {
+  const el = document.getElementById('rawJson');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('smsInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) scan();
+});
+</script>
+</body>
+</html>
